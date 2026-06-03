@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ROIC Dashboard — MasterCoffee</title>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root{
+    --bg:#F7F8FA;--card:#fff;--border:#E5E8EF;--text:#1A1D23;--text2:#6B7280;--text3:#9CA3AF;
+    --blue:#2563EB;--green:#16A34A;--amber:#D97706;--red:#DC2626;--purple:#7C3AED;
+    --green-bg:#F0FDF4;--amber-bg:#FFFBEB;--red-bg:#FEF2F2;--purple-bg:#F5F3FF;--blue-bg:#EFF6FF;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);font-size:14px}
+
+  /* AUTH SCREEN */
+  #auth-screen{
+    display:flex;align-items:center;justify-content:center;
+    min-height:100vh;background:linear-gradient(135deg,#1F3864 0%,#2F5496 100%);
+  }
+  .auth-box{
+    background:#fff;border-radius:16px;padding:48px 40px;text-align:center;
+    max-width:380px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,.25);
+  }
+  .auth-logo{font-size:36px;margin-bottom:12px}
+  .auth-title{font-size:22px;font-weight:700;color:#1F3864;margin-bottom:6px}
+  .auth-sub{font-size:13px;color:#6B7280;margin-bottom:32px;line-height:1.5}
+  .auth-btn{
+    display:inline-flex;align-items:center;gap:10px;
+    background:#fff;border:1.5px solid #E5E8EF;border-radius:10px;
+    padding:13px 24px;cursor:pointer;font-size:14px;font-weight:500;color:#1A1D23;
+    transition:all .15s;text-decoration:none;
+  }
+  .auth-btn:hover{background:#F7F8FA;border-color:#2563EB;color:#2563EB}
+  .auth-btn svg{width:20px;height:20px;flex-shrink:0}
+  .auth-error{
+    margin-top:16px;padding:10px 16px;background:#FEF2F2;border:1px solid #FCA5A5;
+    border-radius:8px;font-size:13px;color:#DC2626;display:none;
+  }
+  .auth-domain{margin-top:20px;font-size:11px;color:#9CA3AF}
+
+  /* DASHBOARD */
+  #dashboard{display:none}
+  .topbar{
+    background:#1F3864;color:#fff;padding:14px 24px;
+    display:flex;align-items:center;justify-content:space-between;
+    position:sticky;top:0;z-index:100;
+  }
+  .topbar-left{display:flex;align-items:center;gap:12px}
+  .topbar-logo{font-size:20px}
+  .topbar-title{font-size:16px;font-weight:600}
+  .topbar-sub{font-size:11px;opacity:.6;margin-top:1px}
+  .topbar-right{display:flex;align-items:center;gap:14px}
+  .user-info{display:flex;align-items:center;gap:8px;font-size:12px;opacity:.85}
+  .user-avatar{
+    width:28px;height:28px;border-radius:50%;background:#2F5496;
+    display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;
+    overflow:hidden;
+  }
+  .user-avatar img{width:100%;height:100%;object-fit:cover}
+  .logout-btn{
+    font-size:11px;padding:5px 12px;border-radius:20px;
+    background:rgba(255,255,255,.15);border:none;color:#fff;cursor:pointer;
+    transition:background .15s;
+  }
+  .logout-btn:hover{background:rgba(255,255,255,.25)}
+
+  .main{padding:20px 24px;max-width:1400px;margin:0 auto}
+
+  /* KPI */
+  .kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:20px}
+  .kpi{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px 18px}
+  .kpi-label{font-size:11px;color:var(--text2);margin-bottom:6px;font-weight:500}
+  .kpi-val{font-size:22px;font-weight:700;line-height:1.1}
+  .kpi-sub{font-size:11px;color:var(--text3);margin-top:4px}
+
+  /* TABS */
+  .tabs{display:flex;gap:2px;margin-bottom:16px;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:4px;width:fit-content}
+  .tab{font-size:13px;padding:7px 16px;border-radius:7px;cursor:pointer;border:none;background:transparent;color:var(--text2);font-weight:500;transition:all .15s}
+  .tab.active{background:#1F3864;color:#fff}
+  .pane{display:none}.pane.active{display:block}
+
+  /* CARDS */
+  .card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:18px 20px;margin-bottom:16px}
+  .card-title{font-size:13px;font-weight:600;margin-bottom:4px}
+  .card-sub{font-size:12px;color:var(--text2);margin-bottom:14px}
+
+  /* TABLE */
+  .tbl-wrap{overflow-x:auto}
+  table{width:100%;border-collapse:collapse;font-size:12px}
+  th{font-size:11px;font-weight:600;color:var(--text2);padding:8px 10px;border-bottom:1.5px solid var(--border);text-align:left;white-space:nowrap;background:#FAFBFC}
+  td{padding:8px 10px;border-bottom:1px solid var(--border);vertical-align:middle}
+  tr:last-child td{border-bottom:none}
+  tr:hover td{background:#FAFBFC}
+  .pill{display:inline-flex;align-items:center;font-size:11px;font-weight:500;padding:3px 9px;border-radius:20px;white-space:nowrap}
+  .pill-g{background:var(--green-bg);color:var(--green)}
+  .pill-y{background:var(--amber-bg);color:var(--amber)}
+  .pill-r{background:var(--red-bg);color:var(--red)}
+  .pill-p{background:var(--purple-bg);color:var(--purple)}
+  .bar{display:flex;align-items:center;gap:6px}
+  .bt{flex:1;height:5px;background:#F3F4F6;border-radius:3px;min-width:40px}
+  .bf{height:100%;border-radius:3px}
+
+  /* TYPE TAG */
+  .type-tag{display:inline-block;font-size:10px;font-weight:600;padding:2px 7px;border-radius:4px}
+  .type-e{background:var(--purple-bg);color:var(--purple)}
+  .type-c{background:var(--green-bg);color:var(--green)}
+
+  /* FREEZE */
+  .fr{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--border)}
+  .fr:last-child{border-bottom:none}
+  .fr-left .fr-name{font-size:13px;font-weight:500}
+  .fr-left .fr-cat{font-size:11px;color:var(--text3)}
+  .fr-right{text-align:right}
+  .fr-amt{font-size:13px;font-weight:600;color:var(--red)}
+  .fr-days{font-size:11px;color:var(--text3)}
+
+  /* 2-col */
+  .col2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media(max-width:700px){.col2{grid-template-columns:1fr}.tabs{flex-wrap:wrap}}
+
+  /* LOADING */
+  #loading{
+    display:none;position:fixed;inset:0;background:rgba(255,255,255,.85);
+    align-items:center;justify-content:center;z-index:999;flex-direction:column;gap:12px;
+  }
+  .spinner{width:36px;height:36px;border:3px solid #E5E8EF;border-top-color:#1F3864;border-radius:50%;animation:spin .7s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .loading-text{font-size:13px;color:var(--text2)}
+
+  /* ALERT */
+  .alert-banner{background:#FEF2F2;border:1px solid #FCA5A5;border-radius:8px;padding:10px 14px;font-size:12px;color:var(--red);margin-bottom:12px;display:none}
+
+  /* NORM indicator */
+  .norm-ok{color:var(--green);font-weight:600}
+  .norm-warn{color:var(--amber);font-weight:600}
+  .norm-bad{color:var(--red);font-weight:600}
+</style>
+</head>
+<body>
+
+<!-- AUTH SCREEN -->
+<div id="auth-screen">
+  <div class="auth-box">
+    <div class="auth-logo">☕</div>
+    <div class="auth-title">MasterCoffee ROIC</div>
+    <div class="auth-sub">Дашборд анализа доходности на капитал.<br>Войдите через корпоративный аккаунт.</div>
+    <button class="auth-btn" id="google-signin-btn">
+      <svg viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+      Войти через Google
+    </button>
+    <div class="auth-error" id="auth-error">⛔ Доступ только для сотрудников MasterCoffee (@mastercoffee.kz)</div>
+    <div class="auth-domain">Только аккаунты @mastercoffee.kz</div>
+  </div>
+</div>
+
+<!-- LOADING -->
+<div id="loading">
+  <div class="spinner"></div>
+  <div class="loading-text">Загружаем данные из Google Sheets...</div>
+</div>
+
+<!-- DASHBOARD -->
+<div id="dashboard">
+  <div class="topbar">
+    <div class="topbar-left">
+      <div class="topbar-logo">☕</div>
+      <div>
+        <div class="topbar-title">MasterCoffee ROIC Dashboard</div>
+        <div class="topbar-sub" id="period-label">Загрузка...</div>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <div class="user-info">
+        <div class="user-avatar" id="user-avatar">?</div>
+        <span id="user-name">...</span>
+      </div>
+      <button class="logout-btn" onclick="signOut()">Выйти</button>
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="alert-banner" id="alert-banner"></div>
+
+    <!-- KPI -->
+    <div class="kpi-grid">
+      <div class="kpi"><div class="kpi-label">Выручка</div><div class="kpi-val" id="k-rev">—</div><div class="kpi-sub">за период</div></div>
+      <div class="kpi"><div class="kpi-label">Вал. прибыль</div><div class="kpi-val" style="color:var(--green)" id="k-profit">—</div><div class="kpi-sub" id="k-margin">маржа —</div></div>
+      <div class="kpi"><div class="kpi-label">Заморожено</div><div class="kpi-val" style="color:var(--red)" id="k-freeze">—</div><div class="kpi-sub">ср. остатки × себест.</div></div>
+      <div class="kpi"><div class="kpi-label">Лидер ROIC</div><div class="kpi-val" style="color:var(--green)" id="k-top">—</div><div class="kpi-sub" id="k-top-name">—</div></div>
+      <div class="kpi"><div class="kpi-label">Проблемных</div><div class="kpi-val" style="color:var(--red)" id="k-bad">—</div><div class="kpi-sub">стоп + убыток</div></div>
+      <div class="kpi"><div class="kpi-label">Излишки (₸)</div><div class="kpi-val" style="color:var(--amber)" id="k-izl">—</div><div class="kpi-sub">можно высвободить</div></div>
+    </div>
+
+    <!-- TABS -->
+    <div class="tabs">
+      <button class="tab active" onclick="showTab('matrix',event)">Матрица</button>
+      <button class="tab" onclick="showTab('table',event)">Таблица</button>
+      <button class="tab" onclick="showTab('freeze',event)">Заморозка</button>
+      <button class="tab" onclick="showTab('cats',event)">Категории</button>
+    </div>
+
+    <!-- MATRIX -->
+    <div id="pane-matrix" class="pane active">
+      <div class="card">
+        <div class="card-title">Матрица: маржа × оборачиваемость</div>
+        <div class="card-sub">Ось X — оборачиваемость (× за квартал), Y — маржа %. Размер — выручка. Наведите на точку.</div>
+        <div style="position:relative;height:340px"><canvas id="matrix-chart"></canvas></div>
+        <div style="display:flex;gap:16px;flex-wrap:wrap;margin-top:10px">
+          <span style="display:flex;align-items:center;gap:5px;font-size:11px;color:#6B7280"><span style="width:9px;height:9px;border-radius:50%;background:#16A34A;display:inline-block"></span>ROIC выше нормы</span>
+          <span style="display:flex;align-items:center;gap:5px;font-size:11px;color:#6B7280"><span style="width:9px;height:9px;border-radius:50%;background:#D97706;display:inline-block"></span>Умеренно</span>
+          <span style="display:flex;align-items:center;gap:5px;font-size:11px;color:#6B7280"><span style="width:9px;height:9px;border-radius:50%;background:#DC2626;display:inline-block"></span>Проблемные</span>
+          <span style="display:flex;align-items:center;gap:5px;font-size:11px;color:#6B7280"><span style="width:9px;height:9px;border-radius:50%;background:#7C3AED;display:inline-block"></span>Оборудование</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- TABLE -->
+    <div id="pane-table" class="pane">
+      <div class="card">
+        <div class="card-title">Все товары — сортировка по ROIC</div>
+        <div class="card-sub">🟣 Оборудование — норма 90 дней · 🟢 Расходники — норма 31 день</div>
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr>
+              <th>Тип</th><th>Товар</th><th>Маржа</th>
+              <th>Оборачиваемость</th><th>Дней запаса</th><th>Норма</th>
+              <th>Излишек (₸)</th><th>ROIC год.</th><th>Сигнал</th>
+            </tr></thead>
+            <tbody id="main-table"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- FREEZE -->
+    <div id="pane-freeze" class="pane">
+      <div class="col2">
+        <div class="card">
+          <div class="card-title">Топ-10 заморозки капитала</div>
+          <div class="card-sub">Средние остатки × себестоимость</div>
+          <div id="freeze-list"></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Топ-10 излишков</div>
+          <div class="card-sub">Товара больше чем нужно — сумма которую можно высвободить</div>
+          <div id="izl-list"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CATS -->
+    <div id="pane-cats" class="pane">
+      <div class="col2">
+        <div class="card">
+          <div class="card-title">ROIC по категориям</div>
+          <div style="position:relative;height:240px"><canvas id="cat-chart"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Заморозка по категориям</div>
+          <div style="position:relative;height:240px"><canvas id="freeze-chart"></canvas></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── CONFIG ──────────────────────────────────────────────────────────────────
+const CLIENT_ID   = '78141610981-7cehp2khvri36216vkhr8374ro52ucn2.apps.googleusercontent.com';
+const SHEET_ID    = '1ET2bwJi05eK899B6AVa3w2CvP5LYC2mwE6m5kZTf76c';
+const SHEET_NAME  = 'Данные';
+const ALLOWED_DOMAIN = 'mastercoffee.kz';
+const K_YEAR      = 4.056;
+const NORM_EQP    = 90;
+const NORM_CON    = 31;
+
+// ─── AUTH ─────────────────────────────────────────────────────────────────────
+let currentUser = null;
+
+window.addEventListener('load', () => {
+  // Проверяем сохранённую сессию
+  const saved = sessionStorage.getItem('roic_user');
+  if (saved) {
+    try {
+      currentUser = JSON.parse(saved);
+      if (currentUser.domain === ALLOWED_DOMAIN) {
+        showDashboard();
+        loadData();
+        return;
+      }
+    } catch(e) {}
+  }
+
+  // Инициализируем Google Identity
+  if (typeof google !== 'undefined' && google.accounts) {
+    initGoogle();
+  } else {
+    document.querySelector('script[src*="gsi"]').addEventListener('load', initGoogle);
+  }
+});
+
+function initGoogle() {
+  google.accounts.id.initialize({
+    client_id: CLIENT_ID,
+    callback: handleCredential,
+    auto_select: false,
+  });
+
+  document.getElementById('google-signin-btn').addEventListener('click', () => {
+    google.accounts.id.prompt((n) => {
+      if (n.isNotDisplayed() || n.isSkippedMoment()) {
+        // Fallback — открываем popup
+        google.accounts.oauth2.initTokenClient({
+          client_id: CLIENT_ID,
+          scope: 'email profile',
+          callback: () => {},
+        });
+        google.accounts.id.renderButton(
+          document.createElement('div'),
+          { theme: 'outline', size: 'large' }
+        );
+        google.accounts.id.prompt();
+      }
+    });
+  });
+}
+
+function handleCredential(response) {
+  const payload = parseJwt(response.credential);
+  const email = payload.email || '';
+  const domain = email.split('@')[1] || '';
+
+  if (domain !== ALLOWED_DOMAIN) {
+    document.getElementById('auth-error').style.display = 'block';
+    return;
+  }
+
+  currentUser = {
+    email, domain,
+    name: payload.name,
+    picture: payload.picture,
+    given_name: payload.given_name,
+  };
+  sessionStorage.setItem('roic_user', JSON.stringify(currentUser));
+  showDashboard();
+  loadData();
+}
+
+function showDashboard() {
+  document.getElementById('auth-screen').style.display = 'none';
+  document.getElementById('dashboard').style.display = 'block';
+  if (currentUser) {
+    document.getElementById('user-name').textContent = currentUser.given_name || currentUser.name;
+    const av = document.getElementById('user-avatar');
+    if (currentUser.picture) {
+      av.innerHTML = `<img src="${currentUser.picture}" alt="">`;
+    } else {
+      av.textContent = (currentUser.name || '?')[0].toUpperCase();
+    }
+  }
+}
+
+function signOut() {
+  sessionStorage.removeItem('roic_user');
+  if (typeof google !== 'undefined') google.accounts.id.disableAutoSelect();
+  location.reload();
+}
+
+function parseJwt(token) {
+  try { return JSON.parse(atob(token.split('.')[1].replace(/-/g,'+').replace(/_/g,'/'))); }
+  catch(e) { return {}; }
+}
+
+// ─── DATA ─────────────────────────────────────────────────────────────────────
+const SHEETS_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(SHEET_NAME)}`;
+
+async function loadData() {
+  document.getElementById('loading').style.display = 'flex';
+  try {
+    const res = await fetch(SHEETS_URL);
+    const text = await res.text();
+    const json = JSON.parse(text.match(/google\.visualization\.Query\.setResponse\(([\s\S]*)\)/)[1]);
+    const rows = json.table.rows;
+    const products = parseRows(rows);
+    renderAll(products);
+  } catch(e) {
+    document.getElementById('alert-banner').textContent = '⚠️ Не удалось загрузить данные из Google Sheets. Проверьте доступ к таблице.';
+    document.getElementById('alert-banner').style.display = 'block';
+  } finally {
+    document.getElementById('loading').style.display = 'none';
+  }
+}
+
+function val(cell) {
+  if (!cell || cell.v === null || cell.v === undefined) return null;
+  return cell.v;
+}
+
+function parseRows(rows) {
+  const ps = [];
+  for (let i = 4; i < rows.length; i++) { // Строки данных начиная с 5й (индекс 4)
+    const c = rows[i].c || [];
+    const typ  = val(c[0]);
+    const cat  = val(c[1]);
+    const name = val(c[2]);
+    const qty  = parseFloat(val(c[3])) || 0;
+    const rev  = parseFloat(val(c[4])) || 0;
+    const cost = parseFloat(val(c[5])) || 0;
+
+    if (!name || !rev) continue;
+    if (String(name).toUpperCase() === 'ИТОГО') continue;
+
+    const profit = rev - cost;
+    const margin = rev > 0 ? profit / rev : 0;
+
+    const ost_n = parseFloat(val(c[7])) || null;
+    const ost_k = parseFloat(val(c[8])) || null;
+    let avgQ = 0;
+    if (ost_n && ost_k) avgQ = (ost_n + ost_k) / 2;
+    else if (ost_k) avgQ = ost_k;
+    else if (ost_n) avgQ = ost_n;
+
+    const seb    = parseFloat(val(c[10])) || 0;
+    const avgStk = avgQ * seb;
+    const turn   = avgQ > 0 ? qty / avgQ : 0;
+    const days   = qty > 0 ? Math.round(avgQ / (qty / 90)) : 999;
+    const roic   = margin * turn * K_YEAR * 100;
+
+    const izl_sht = parseFloat(val(c[16])) || 0;
+    const izl_sum = parseFloat(val(c[17])) || 0;
+
+    const isEqp  = String(typ || '').toLowerCase().includes('обор');
+    const norm   = isEqp ? NORM_EQP : NORM_CON;
+
+    ps.push({typ, cat, name, qty, rev, cost, profit, margin,
+             ost_n, ost_k, avgQ, seb, avgStk, turn, days, roic,
+             izl_sht, izl_sum, isEqp, norm});
+  }
+  return ps;
+}
+
+// ─── RENDER ───────────────────────────────────────────────────────────────────
+const fmt  = n => new Intl.NumberFormat('ru-RU').format(Math.round(n));
+const fmtM = n => {
+  if (Math.abs(n) >= 1e6) return (n/1e6).toFixed(1)+'M';
+  if (Math.abs(n) >= 1e3) return (n/1e3).toFixed(0)+'K';
+  return Math.round(n).toString();
+};
+
+function sigInfo(p) {
+  if (p.margin < 0)           return {label:'❌ Убыток',    cls:'pill-r'};
+  if (p.days > p.norm * 3)    return {label:'🔴 Стоп',      cls:'pill-r'};
+  if (p.izl_sum > 0)          return {label:'🟠 Излишек',   cls:'pill-y'};
+  if (p.days > p.norm)        return {label:'⚠️ Выше нормы',cls:'pill-y'};
+  if (p.roic > 50)            return {label:'🚀 Ракета',    cls:'pill-g'};
+  if (p.roic > 3)             return {label:'⭐ Звезда',    cls:'pill-g'};
+  if (p.roic > 1.5)           return {label:'✅ Хорошо',    cls:'pill-g'};
+  return                             {label:'🟡 Умеренно',  cls:'pill-y'};
+}
+
+function dotColor(p) {
+  const s = sigInfo(p);
+  if (s.cls === 'pill-g') return 'rgba(22,163,74,.75)';
+  if (s.cls === 'pill-r') return 'rgba(220,38,38,.75)';
+  if (p.isEqp)            return 'rgba(124,58,237,.65)';
+  return                         'rgba(217,119,6,.75)';
+}
+
+let matrixChart = null, catChart = null, freezeChart = null;
+
+function renderAll(ps) {
+  // Period label
+  document.getElementById('period-label').textContent = 'Период: 01.01.2024 — 31.03.2024 · 90 дней';
+
+  // KPIs
+  const totRev    = ps.reduce((a,p) => a+p.rev, 0);
+  const totProfit = ps.reduce((a,p) => a+p.profit, 0);
+  const totFreeze = ps.reduce((a,p) => a+p.avgStk, 0);
+  const totIzl    = ps.reduce((a,p) => a+p.izl_sum, 0);
+  const badCount  = ps.filter(p => p.margin<0 || p.days>p.norm*3).length;
+  const topP      = [...ps].sort((a,b) => b.roic-a.roic)[0];
+
+  document.getElementById('k-rev').textContent    = fmtM(totRev)+' ₸';
+  document.getElementById('k-profit').textContent = fmtM(totProfit)+' ₸';
+  document.getElementById('k-margin').textContent = 'маржа '+(totProfit/totRev*100).toFixed(1)+'%';
+  document.getElementById('k-freeze').textContent = fmtM(totFreeze)+' ₸';
+  document.getElementById('k-top').textContent    = topP ? (topP.roic>100?Math.round(topP.roic):topP.roic.toFixed(1))+'%' : '—';
+  document.getElementById('k-top-name').textContent = topP ? topP.name.split(' ').slice(0,3).join(' ') : '';
+  document.getElementById('k-bad').textContent   = badCount+' шт';
+  document.getElementById('k-izl').textContent   = fmtM(totIzl)+' ₸';
+
+  // Table
+  const sorted = [...ps].sort((a,b) => b.roic-a.roic);
+  const tbody = document.getElementById('main-table');
+  tbody.innerHTML = '';
+  sorted.forEach(p => {
+    const sig  = sigInfo(p);
+    const maxT = 5;
+    const pct  = Math.min(p.turn/maxT,1)*100;
+    const bc   = p.roic>3?'#16A34A':p.roic>1?'#D97706':'#DC2626';
+    const rc   = p.roic>3?'var(--green)':p.roic>1?'var(--amber)':'var(--red)';
+    const rv   = p.roic>100?Math.round(p.roic)+'%':p.roic.toFixed(2)+'%';
+    const daysColor = p.days<=p.norm?'norm-ok':p.days<=p.norm*2?'norm-warn':'norm-bad';
+    const normColor = 'color:#6B7280';
+    tbody.innerHTML += `<tr>
+      <td><span class="type-tag ${p.isEqp?'type-e':'type-c'}">${p.isEqp?'Обор.':'Расх.'}</span></td>
+      <td style="max-width:220px;white-space:normal;font-size:12px">${p.name}</td>
+      <td>${(p.margin*100).toFixed(1)}%</td>
+      <td><div class="bar"><div class="bt"><div class="bf" style="width:${pct.toFixed(0)}%;background:${bc}"></div></div><span>${p.turn.toFixed(2)}×</span></div></td>
+      <td class="${daysColor}">${p.days>900?'—':p.days+' дн.'}</td>
+      <td style="${normColor}">${p.norm} дн.</td>
+      <td style="color:${p.izl_sum>0?'var(--amber)':'var(--text3)'}">${p.izl_sum>0?fmt(p.izl_sum)+' ₸':'—'}</td>
+      <td style="font-weight:600;color:${rc}">${rv}</td>
+      <td><span class="pill ${sig.cls}">${sig.label}</span></td>
+    </tr>`;
+  });
+
+  // Freeze list
+  const byFreeze = [...ps].sort((a,b) => b.avgStk-a.avgStk).slice(0,10);
+  const fl = document.getElementById('freeze-list');
+  fl.innerHTML = '';
+  byFreeze.forEach(p => {
+    fl.innerHTML += `<div class="fr">
+      <div class="fr-left"><div class="fr-name">${p.name.split(' ').slice(0,4).join(' ')}</div><div class="fr-cat">${p.cat}</div></div>
+      <div class="fr-right"><div class="fr-amt">${fmt(p.avgStk)} ₸</div><div class="fr-days">${p.days>900?'—':p.days+' дней запаса'}</div></div>
+    </div>`;
+  });
+
+  // Излишки list
+  const byIzl = [...ps].filter(p=>p.izl_sum>0).sort((a,b) => b.izl_sum-a.izl_sum).slice(0,10);
+  const il = document.getElementById('izl-list');
+  il.innerHTML = '';
+  if (byIzl.length === 0) {
+    il.innerHTML = '<div style="padding:16px 0;color:var(--text3);font-size:12px;text-align:center">Излишков не обнаружено</div>';
+  } else {
+    byIzl.forEach(p => {
+      il.innerHTML += `<div class="fr">
+        <div class="fr-left"><div class="fr-name">${p.name.split(' ').slice(0,4).join(' ')}</div><div class="fr-cat">${p.cat} · ${p.izl_sht} шт</div></div>
+        <div class="fr-right"><div class="fr-amt">${fmt(p.izl_sum)} ₸</div></div>
+      </div>`;
+    });
+  }
+
+  // Matrix chart
+  const maxRev = Math.max(...ps.map(p=>p.rev));
+  if (matrixChart) matrixChart.destroy();
+  matrixChart = new Chart(document.getElementById('matrix-chart'), {
+    type:'bubble',
+    data:{datasets:[{
+      data: ps.map(p=>({x:+p.turn.toFixed(3),y:+(p.margin*100).toFixed(1),r:Math.max(5,Math.round(Math.sqrt(p.rev/maxRev)*28))})),
+      backgroundColor: ps.map(p=>dotColor(p)),
+      borderColor:'transparent',
+      hoverBorderWidth:2,
+      hoverBorderColor: ps.map(p=>dotColor(p).replace('.75','1').replace('.65','1')),
+    }]},
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{
+        legend:{display:false},
+        tooltip:{callbacks:{label:(c)=>{const p=ps[c.dataIndex];return[p.name,`Маржа: ${(p.margin*100).toFixed(1)}%`,`Оборот: ${p.turn.toFixed(2)}×`,`ROIC: ${p.roic>100?Math.round(p.roic):p.roic.toFixed(2)}%`];}}}
+      },
+      scales:{
+        x:{min:-0.05,title:{display:true,text:'Оборачиваемость (× за квартал)',font:{size:11},color:'#9CA3AF'},grid:{color:'rgba(0,0,0,.05)'},ticks:{color:'#9CA3AF',font:{size:11}}},
+        y:{title:{display:true,text:'Маржа %',font:{size:11},color:'#9CA3AF'},grid:{color:'rgba(0,0,0,.05)'},ticks:{color:'#9CA3AF',font:{size:11},callback:v=>v+'%'}}
+      }
+    }
+  });
+
+  // Category charts
+  const cats = {};
+  ps.forEach(p => {
+    if (!cats[p.cat]) cats[p.cat]={profit:0,rev:0,turns:[],freeze:0};
+    cats[p.cat].profit+=p.profit; cats[p.cat].rev+=p.rev;
+    cats[p.cat].turns.push(p.turn); cats[p.cat].freeze+=p.avgStk;
+  });
+  const catArr = Object.entries(cats).map(([name,d])=>{
+    const m=d.profit/d.rev;
+    const t=d.turns.reduce((a,b)=>a+b,0)/d.turns.length;
+    return{name,roic:m*t*K_YEAR*100,freeze:d.freeze};
+  }).sort((a,b)=>b.roic-a.roic);
+
+  if (catChart) catChart.destroy();
+  catChart = new Chart(document.getElementById('cat-chart'),{
+    type:'bar',
+    data:{
+      labels:catArr.map(c=>c.name),
+      datasets:[{label:'ROIC год. %',data:catArr.map(c=>+c.roic.toFixed(2)),
+        backgroundColor:catArr.map(c=>c.roic>3?'#16A34A':c.roic>1?'#D97706':'#DC2626'),
+        borderRadius:5,borderSkipped:false}]
+    },
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:v=>'ROIC: '+v.raw+'%'}}},
+      scales:{y:{grid:{color:'rgba(0,0,0,.05)'},ticks:{color:'#9CA3AF',font:{size:11},callback:v=>v+'%'}},
+              x:{grid:{display:false},ticks:{color:'#9CA3AF',font:{size:11},maxRotation:20}}}}
+  });
+
+  if (freezeChart) freezeChart.destroy();
+  const catByFreeze = [...catArr].sort((a,b)=>b.freeze-a.freeze);
+  freezeChart = new Chart(document.getElementById('freeze-chart'),{
+    type:'bar',
+    data:{
+      labels:catByFreeze.map(c=>c.name),
+      datasets:[{label:'Заморожено (₸)',data:catByFreeze.map(c=>Math.round(c.freeze)),
+        backgroundColor:'rgba(220,38,38,.65)',borderRadius:5,borderSkipped:false}]
+    },
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:v=>fmt(v.raw)+' ₸'}}},
+      scales:{y:{grid:{color:'rgba(0,0,0,.05)'},ticks:{color:'#9CA3AF',font:{size:11},callback:v=>fmtM(v)}},
+              x:{grid:{display:false},ticks:{color:'#9CA3AF',font:{size:11},maxRotation:20}}}}
+  });
+}
+
+// ─── TABS ─────────────────────────────────────────────────────────────────────
+function showTab(id, e) {
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.pane').forEach(p=>p.classList.remove('active'));
+  e.target.classList.add('active');
+  document.getElementById('pane-'+id).classList.add('active');
+}
+</script>
+</body>
+</html>
